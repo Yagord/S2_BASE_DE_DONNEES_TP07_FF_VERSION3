@@ -1,0 +1,227 @@
+/*Partie1*/
+ALTER DATABASE DEFAULT TABLESPACE USERS;
+ALTER USER /*<nom>*/ QUOTA 50m ON USERS;
+
+/*Partie2*/
+/*1*/
+CREATE TABLE Pilote AS (
+SELECT *
+FROM IQ_BD_GONZAGUE.PILOTE);
+
+CREATE TABLE Avion AS (
+SELECT *
+FROM IQ_BD_GONZAGUE.AVION);
+
+CREATE TABLE Vol AS (
+SELECT *
+FROM IQ_BD_GONZAGUE.VOL);
+
+/*2*/
+SELECT *
+FROM DICTIONARY
+ORDER BY TABLE_NAME;
+
+/*3*/
+SELECT column_name, comments
+FROM dict_columns
+WHERE table_name = 'USER_TABLES';
+
+DESC USER_TABLES;
+
+/*4*/
+SELECT TABLE_NAME
+FROM USER_TABLES;
+
+/*5*/
+SELECT TABLE_NAME
+FROM ALL_TABLES
+WHERE OWNER = 'IQ_BDD_SCOTT';
+
+/*6*/
+SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE, TABLE_NAME
+FROM USER_CONSTRAINTS;
+
+PURGE RECYCLEBIN;
+
+/*7*/
+SELECT *
+FROM Avion;
+
+SELECT *
+FROM Pilote;
+
+SELECT *
+FROM Vol;
+/*a*/
+ALTER TABLE Avion
+ADD CONSTRAINT Pk_Avion PRIMARY KEY (numAvion);
+
+ALTER TABLE Pilote
+ADD CONSTRAINT Pk_Pilote PRIMARY KEY (numPilote);
+
+ALTER TABLE Vol
+ADD CONSTRAINT Pk_Vol PRIMARY KEY (numVol)
+ADD CONSTRAINT Fk_Vol_Avion FOREIGN KEY (numAvion) REFERENCES Avion (numAvion)
+ADD CONSTRAINT Fk_Vol_Pilote FOREIGN KEY (numPilote) REFERENCES Pilote (numPilote);
+
+/*b*/
+ALTER TABLE Avion
+ADD CONSTRAINT check_capacite CHECK (capacite BETWEEN 0 AND 900);
+
+/*c*/
+ALTER TABLE Vol
+ADD CONSTRAINT checkdateDep CHECK (dateDep < dateArr);
+
+
+/*Partie 3*/
+/*1*/
+SELECT Vol.NumVol, Vol.NumPilote, Vol.NumAvion, Vol.VilleDep, Vol.VilleArr, Vol.DateDep, Vol.DateArr
+FROM Vol
+WHERE UPPER(Vol.villeArr) = UPPER('Paris');
+
+/*2*/
+CREATE OR REPLACE VIEW VOLS_VERS_PARIS
+AS (SELECT Vol.NumVol, Vol.NumPilote, Vol.NumAvion, Vol.VilleDep, Vol.VilleArr, Vol.DateDep, Vol.DateArr
+    FROM Vol
+    WHERE UPPER(Vol.villeArr) = UPPER('Paris'));
+
+SELECT *
+FROM VOLS_VERS_PARIS;
+
+DESC VOLS_VERS_PARIS;
+/*On remarque que DateDep et DateArr sont de types VARCHAR2 et non DATE.*/
+
+/*3*/
+CREATE OR REPLACE VIEW VOLS_VERS_PARIS
+AS (SELECT Vol.NumVol, Vol.NumPilote, Vol.NumAvion, Vol.VilleDep, Vol.VilleArr, CAST(Vol.DateDep AS DATE), CAST(Vol.DateArr AS DATE)
+    FROM Vol
+    WHERE UPPER(Vol.villeArr) = UPPER('Paris'));
+
+/*4*/
+UPDATE VOlS_VERS_PARIS
+SET VOlS_VERS_PARIS.villeArr = 'Dijon'
+WHERE VOlS_VERS_PARIS.numVol = 8;
+
+SELECT *
+FROM VOLS_VERS_PARIS;
+SELECT *
+FROM Vol;
+
+/*5*/
+CREATE OR REPLACE VIEW LISTE_VOLS(NumVol, NomPilote, NomAvion)
+AS (SELECT Vol.numVol, Pilote.nomPilote, Avion.nomAvion
+    FROM Vol
+    INNER JOIN Pilote ON (Vol.numPilote = Pilote.numPilote)
+    INNER JOIN Avion ON (Vol.numAvion = Avion.numAvion));
+
+/*6*/
+SELECT OBJECT_NAME, OBJECT_TYPE
+FROM USER_OBJECTS;
+
+/*7*/
+UPDATE LISTE_VOLS
+SET LISTE_VOLS.nomPilote = 'Clementine'
+WHERE LISTE_VOLS.numVol = 4;
+
+/*On peut update une join view (view qui depend de plusieurs tables) car on n'a pas spécifié WITH READ ONLY dans la création de la view.*/
+/*On ne peut pas upadte ou insert dans une vue qui dépend de pusieurs tables*/
+
+/*8*/
+SELECT COLUMN_NAME
+FROM USER_UPDATABLE_COLUMNS
+WHERE (TABLE_NAME = 'LISTE_VOLS') AND ((UPDATABLE = 'YES') OR (INSERTABLE = 'YES'));
+
+SELECT COLUMN_NAME
+FROM USER_UPDATABLE_COLUMNS
+WHERE (TABLE_NAME = 'VOLS_VERS_PARIS') AND ((UPDATABLE = 'YES') OR (INSERTABLE = 'YES'));
+
+/*Partie4*/
+/*1*/
+/*USER_1 : IQ_BD_CHASSAGNE*/
+GRANT CREATE VIEW
+TO IQ_BD_FORGERON;
+/*USER_2 / IQ_BD_FORGERON*/
+CREATE VIEW ViewPiloteUser1 AS (SELECT *
+                FROM IQ_BD_CHASSAGNE.Pilote);
+                
+/*USER_2 : IQ_BD_FORGERON*/
+GRANT CREATE VIEW ON Pilote
+TO IQ_BD_CHASSAGNE;
+/*USER_1 : IQ_BD_CHASSAGNE*/
+CREATE VIEW ViewPiloteUser2 AS (SELECT *
+                FROM IQ_BD_FORGERON.Pilote);
+              
+/*2*/
+/*USER_2 : IQ_BD_FORGERON*/
+INSERT INTO IQ_BD_CHASSAGNE.Pilote VALUES (11, 'a', 'a', 'a', 1000000);
+INSERT INTO ViewPiloteUser1 VALUES ();
+
+/*USER_2 : IQ_BD_CHASSAGNE*/
+INSERT INTO IQ_BD_FORGERON.Pilote VALUES ();
+INSERT INTO ViewPiloteUser2 VALUES ();
+
+SELECT *
+FROM Pilote;
+/*USER_2 n'a pas les droits pour modifier la table Pilote de USER_1.*/
+
+/*3*/
+/*USER_2 : IQ_BD_FORGERON*/
+GRANT INSERT ON Pilote
+TO IQ_BD_CHASSAGNE;
+
+/*USER_2 : IQ_BD_CHASSAGNE*/
+GRANT INSERT ON Pilote
+TO IQ_BD_FORGERON;
+
+/*4*/
+/*USER_2 : IQ_BD_FORGERON*/
+GRANT SELECT ON Pilote, Avion
+TO IQ_BD_CHASSAGNE
+WHITH GRANT OPTIONC;
+
+/*USER_2 : IQ_BD_CHASSAGNE*/
+GRANT SELECT ON Pilote
+TO IQ_BD_FORGERON
+WITH GRANT OPTION;
+GRANT SELECT ON Vol
+TO IQ_BD_FORGERON
+WITH GRANT OPTION;
+GRANT SELECT ON Avion
+TO IQ_BD_FORGERON
+WITH GRANT OPTION;
+
+/*5*/
+/*USER_2 : IQ_BD_FORGERON*/
+GRANT SELECT ON IQ_BD_CHASSAGNE.Pilote, IQ_BD_CHASSAGNE.Avion
+TO IQ_BD_BOB
+WHITH GRANT OPTIONC;
+
+/*USER_2 : IQ_BD_CHASSAGNE*/
+GRANT SELECT ON IQ_BD_FORGERON.Pilote, IQ_BD_FORGERON.Avion
+TO IQ_BD_BOB
+WHITH GRANT OPTIONC;
+
+/*6*/
+/*login : IQ_BD_BOB
+  pass : BOBO0000*/
+SELECT *
+FROM IQ_BD_CHASSAGNE.Pilote;
+SELECT *
+FROM IQ_BD_CHASSAGNE.Avion;
+SELECT *
+FROM IQ_BD_FORGERON.Pilote;
+SELECT *
+FROM IQ_BD_FORGERON.Avion;
+
+/*7*/
+/*USER_1 : IQ_BD_CHASSAGNE*/
+REVOKE SELECT ON Vol FROM IQ_BD_FORGERON;
+
+/*USER_1 : IQ_BD_FORGERON*/
+REVOKE SELECT ON Pilote, Avion FROM IQ_BD_CHASSAGNE;
+
+SELECT *
+FROM USER_SYS_PRIVS;
+
+/*On a supprimé un privilège objet necessitant une revocation avec cascade constraint.
+Donc Bob ne peut plus consulte les tables Pilote et Avion de USER_1.
